@@ -1,0 +1,9 @@
+[project]
+name = "hierarchical_late_chunking"
+version = "0.1.0"
+dependencies = [
+    "chromadb>=1.0.20",
+    "docling-core>=2.45.0",
+    "jina>=3.34.0",
+    "langgraph>=0.6.6",
+]
