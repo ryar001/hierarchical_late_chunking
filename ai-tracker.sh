@@ -50,6 +50,7 @@ fi
 
 # Use a temporary file to store Gemini's output
 TEMP_MD=$(mktemp)
+CURRENT_DATE=$(date '+%Y-%m-%d')
 
 # Call Gemini to summarize the changes
 gemini <<EOF > "$TEMP_MD"
@@ -78,7 +79,7 @@ The user has provided a git diff output. Your task is to analyze the changes for
 - If errors are found, output ONLY the error description (e.g., "ERROR: Syntax error in main.py").
 - Otherwise, provide your response exclusively as the raw text of the summary.
 - DO NOT include any explanations or introductory sentences.
-- The current date is $(date '+%Y-%m-%d').
+- The current date is $CURRENT_DATE.
 
 Act autonomously. Do not ask for clarification. Begin analysis immediately when invoked.
 
