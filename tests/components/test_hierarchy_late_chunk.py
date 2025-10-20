@@ -2,9 +2,27 @@ import unittest
 from unittest.mock import Mock, patch
 import os
 import uuid
+import shutil
+import tempfile
+from typing import List, Optional
 
 from components.hierarchy_late_chunk import HierarchyLateChunk
 from components.data_structures import GraphState, RetrievalDoc
+from components.dummy_llm import DummyLLM
+from components.chroma_db import ChromaDb
+from components.embedding_interface import EmbeddingInterface
+from components.models.llm_model import SummarizeOutput, ExpandQueryOutput, AnswerOutput
+
+# Dummy Embedding Model for testing
+class DummyEmbeddingModel(EmbeddingInterface):
+    def embed_text(self, text: str) -> List[float]:
+        return [0.1] * 10
+
+    def embed_documents(self, docs: List[str]) -> List[List[float]]:
+        return [[0.2] * 10 for _ in docs]
+
+    def embed_tokens(self, tokens: List[str]) -> Optional[List[List[float]]]:
+        return [[0.3] * 10 for _ in tokens]
 
 class TestHierarchyLateChunk(unittest.TestCase):
 
@@ -25,7 +43,7 @@ class TestHierarchyLateChunk(unittest.TestCase):
 
         # Mock token-level embeddings
         self.mock_embedding_model.embed_tokens.return_value = [[0.1]*10 for _ in doc_text.split()]
-        self.mock_llm.summarize.return_value = "summary"
+        self.mock_llm.summarize.return_value = SummarizeOutput(summary="summary")
         self.mock_embedding_model.embed_documents.return_value = [[0.2]*10]
         self.mock_vectordb.add.return_value = None
 
@@ -36,7 +54,7 @@ class TestHierarchyLateChunk(unittest.TestCase):
         self.assertIn("num_sections", result)
         self.assertIn("num_chunks", result)
 
-        self.mock_embedding_model.embed_tokens.assert_called_once_with(doc_text)
+        self.mock_embedding_model.embed_tokens.assert_called_once_with(doc_text.split())
         self.mock_llm.summarize.assert_called()
         self.mock_embedding_model.embed_documents.assert_called()
         self.mock_vectordb.add.assert_called()
@@ -49,7 +67,7 @@ class TestHierarchyLateChunk(unittest.TestCase):
         self.mock_embedding_model.embed_tokens.return_value = None
         self.mock_embedding_model.embed_text.return_value = [0.5]*10 # Global vector
         self.mock_embedding_model.embed_documents.return_value = [[0.6]*10] # Raw chunk vecs
-        self.mock_llm.summarize.return_value = "fallback summary"
+        self.mock_llm.summarize.return_value = SummarizeOutput(summary="fallback summary")
         self.mock_vectordb.add.return_value = None
 
         result = self.hierarchy_late_chunk.ingest_document(doc_text, doc_id=doc_id)
@@ -59,7 +77,7 @@ class TestHierarchyLateChunk(unittest.TestCase):
         self.assertIn("num_sections", result)
         self.assertIn("num_chunks", result)
 
-        self.mock_embedding_model.embed_tokens.assert_called_once_with(doc_text)
+        self.mock_embedding_model.embed_tokens.assert_called_once_with(doc_text.split())
         self.mock_embedding_model.embed_text.assert_called_once_with(doc_text)
         self.mock_llm.summarize.assert_called()
         self.mock_embedding_model.embed_documents.assert_called()
@@ -148,7 +166,7 @@ class TestHierarchyLateChunk(unittest.TestCase):
 
     def test_node_query_expansion(self):
         initial_state = GraphState(query="original query")
-        self.mock_llm.expand_query.return_value = ["expanded query 1", "expanded query 2"]
+        self.mock_llm.expand_query.return_value = ExpandQueryOutput(expanded_queries=["expanded query 1", "expanded query 2"])
 
         new_state = self.hierarchy_late_chunk._node_query_expansion(initial_state)
 
@@ -189,7 +207,7 @@ class TestHierarchyLateChunk(unittest.TestCase):
             RetrievalDoc(id="ch_1", text="Context 1", metadata={}),
             RetrievalDoc(id="ch_2", text="Context 2", metadata={})
         ])
-        self.mock_llm.answer.return_value = "Final Answer Text"
+        self.mock_llm.answer.return_value = AnswerOutput(answer="Final Answer Text")
 
         new_state = self.hierarchy_late_chunk._node_answer(initial_state)
 
@@ -268,6 +286,99 @@ class TestHierarchyLateChunk(unittest.TestCase):
         ]
         self.assertEqual(_pack_results(no_meta_res), expected_no_meta)
 
+class TestHierarchyLateChunkIntegration(unittest.TestCase):
+
+    def setUp(self):
+        # Create a temporary directory for ChromaDB
+        self.test_dir = tempfile.mkdtemp()
+        self.db_path = os.path.join(self.test_dir, "chroma_test_db")
+
+        # Create a dummy markdown file
+        self.test_md_file_path = os.path.join(self.test_dir, "test_doc.md")
+        with open(self.test_md_file_path, "w") as f:
+            # Make it long enough to create multiple chunks and sections
+            f.write("The quick brown fox jumps over the lazy dog. " * 200)
+
+        # Create a dummy txt file
+        self.test_txt_file_path = os.path.join(self.test_dir, "test_doc.txt")
+        with open(self.test_txt_file_path, "w") as f:
+            f.write("This is a sentence in a txt file. " * 150)
+
+        # Setup components
+        self.llm = DummyLLM()
+        self.embedding_model = DummyEmbeddingModel()
+        self.vectordb = ChromaDb(persist_directory=self.db_path)
+        
+        self.pipeline = HierarchyLateChunk(
+            llm=self.llm,
+            embedding_model=self.embedding_model,
+            vectordb=self.vectordb
+        )
+
+    def tearDown(self):
+        # Clean up the temporary directory
+        shutil.rmtree(self.test_dir)
+
+    def test_e2e_ingestion_and_query(self):
+        # 1. Ingest the document
+        ingest_info = self.pipeline.ingest_from_file(self.test_md_file_path)
+        
+        self.assertIsNotNone(ingest_info)
+        self.assertEqual(ingest_info["doc_id"], "test_doc.md")
+        self.assertTrue(ingest_info["num_chunks"] > 0)
+        self.assertTrue(ingest_info["num_sections"] > 0)
+
+        # Check if data is in vectordb
+        sections_count = self.vectordb.get_or_create(self.pipeline.sections_collection).count()
+        chunks_count = self.vectordb.get_or_create(self.pipeline.chunks_collection).count()
+        self.assertEqual(sections_count, ingest_info["num_sections"])
+        self.assertEqual(chunks_count, ingest_info["num_chunks"])
+
+        # 2. Run a query
+        query = "What does the fox do?"
+        answer = self.pipeline.run(query)
+
+        self.assertIsNotNone(answer)
+        # DummyLLM returns a canned response, so we check for keywords in the context it received
+        self.assertIn("fox", answer.lower())
+        self.assertIn("jumps", answer.lower())
+        self.assertIn("lazy dog", answer.lower())
+        self.assertIn("q: what does the fox do?", answer.lower())
+
+    def test_e2e_pdf_ingestion(self):
+        # 1. Ingest the PDF document
+
+        pdf_path = os.path.join(os.path.dirname(__file__), "test_files/test_pdf.pdf") # Adjust path to root
+        ingest_info = self.pipeline.ingest_from_file(pdf_path)
+
+        self.assertIsNotNone(ingest_info)
+        self.assertEqual(ingest_info["doc_id"], "test_pdf.pdf")
+        self.assertTrue(ingest_info["num_chunks"] > 0)
+        self.assertTrue(ingest_info["num_sections"] > 0)
+
+        # Check if data is in vectordb
+        sections_count = self.vectordb.get_or_create(self.pipeline.sections_collection).count()
+        chunks_count = self.vectordb.get_or_create(self.pipeline.chunks_collection).count()
+        self.assertEqual(sections_count, ingest_info["num_sections"])
+        self.assertEqual(chunks_count, ingest_info["num_chunks"])
+
+    def test_e2e_txt_ingestion(self):
+        # 1. Ingest the document
+        ingest_info = self.pipeline.ingest_from_file(self.test_txt_file_path)
+        
+        self.assertIsNotNone(ingest_info)
+        self.assertEqual(ingest_info["doc_id"], "test_doc.txt")
+        self.assertTrue(ingest_info["num_chunks"] > 0)
+        self.assertTrue(ingest_info["num_sections"] > 0)
+
+        # Check if data is in vectordb
+        sections_count = self.vectordb.get_or_create(self.pipeline.sections_collection).count()
+        chunks_count = self.vectordb.get_or_create(self.pipeline.chunks_collection).count()
+        self.assertEqual(sections_count, ingest_info["num_sections"])
+        self.assertEqual(chunks_count, ingest_info["num_chunks"])
+
 
 if __name__ == "__main__":
     unittest.main()
+
+        

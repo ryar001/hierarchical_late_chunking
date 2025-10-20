@@ -1,70 +1,97 @@
-from __future__ import annotations
-from typing import List
+
 import os
-
-# LangGraph
-from langgraph.graph import StateGraph, END
-
-# Vector DB (PyPI: chromadb)
-import chromadb
-from chromadb.api.models.Collection import Collection
-
+from dotenv import load_dotenv
 # Import components
-from components.llm_interface import LLMInterface
-from components.embedding_interface import EmbeddingInterface
-from components.vector_db_interface import VectorDbInterface
-from components.jina_embedding_model import JinaEmbeddingModel
+from components.embeddings_llm.jina_embedding_model import JinaEmbeddingModel
 from components.chroma_db import ChromaDb
 from components.data_structures import RetrievalDoc, GraphState
 from components.hierarchy_late_chunk import HierarchyLateChunk
-from components.dummy_llm import DummyLLM
+from components.llm.gemini_llm import GeminiLLM
 from components.utils import mean_pool, fuse_vectors, sliding_chunks, _which_section, _pack_results
 
+load_dotenv()
+JINA_API_KEY = os.environ.get("JINA_API_KEY")
+GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
 
 # =========================
 # Example usage
 # =========================
 if __name__ == "__main__":
     # Dependencies (inject)
-    # NOTE: You will need to install jina to run this: `pip install jina`
     try:
-        # Docling for file loading (PyPI: docling-core)
-        from docling.loader import DoclingLoader
-        emb = JinaEmbeddingModel(model_name="jina-embeddings-v2-base-en")
-    except ImportError as e:
+        emb = JinaEmbeddingModel(model_name="jina-embeddings-v2-base-en", api_key=JINA_API_KEY)
+        llm = GeminiLLM(api_key=GOOGLE_API_KEY)
+    except (ImportError, ValueError) as e:
         print(f"Error: {e}")
-        print("Please install the required packages: `pip install jina chromadb langgraph docling-core`")
+        print("\nPlease ensure all required packages are installed and API keys are set. You can install packages using:\n  uv pip install jina chromadb langgraph docling google-generativeai")
         exit()
-        
+
     vdb = ChromaDb(persist_directory="./chroma_store")
-    llm = DummyLLM()
 
     pipeline = HierarchyLateChunk(llm=llm, embedding_model=emb, vectordb=vdb)
 
-    # --- NEW: Ingest from a file ---
+    # --- Ingest from a file ---
+    # Use test_pdf.pdf if it exists, otherwise create and use a dummy text file.
+    dummy_file_path = "dummy.txt"
+    file_to_ingest = os.path.join(os.path.dirname(__file__), "tests/components/test_files/test_pdf.pdf") # Adjust path to root
+    if not os.path.exists(file_to_ingest):
+        print(f"'{file_to_ingest}' not found. Creating a dummy file for testing: {dummy_file_path}")
+        file_to_ingest = dummy_file_path
+        with open(file_to_ingest, "w", encoding="utf-8") as f:
+            f.write(
+                "Chapter 4: Dynamics and Circular Motion\n"
+                "Newton’s second law states that force equals mass times acceleration (F=ma). "
+                "In uniform circular motion, acceleration is v^2/r toward the center. Therefore, the net force "
+                "required is mv^2/r. This follows from combining the kinematics of circular motion with Newton’s laws. "
+                "Examples include satellites orbiting Earth, cars taking turns, and pendulums at small angles. "
+                * 40  # Repeat to make it long enough for multiple sections
+            )
+
+    # 2. Check if the document is already stored and ask the user for action.
+    doc_id = os.path.basename(file_to_ingest)
     
-    # 1. Create a dummy file to test the ingestion
-    dummy_file_path = "physics_chapter.txt"
-    print(f"Creating a dummy file for testing: {dummy_file_path}")
-    with open(dummy_file_path, "w", encoding="utf-8") as f:
-        f.write(
-            "Chapter 4: Dynamics and Circular Motion\n"
-            "Newton’s second law states that force equals mass times acceleration (F=ma). "
-            "In uniform circular motion, acceleration is v^2/r toward the center. Therefore, the net force "
-            "required is mv^2/r. This follows from combining the kinematics of circular motion with Newton’s laws. "
-            "Examples include satellites orbiting Earth, cars taking turns, and pendulums at small angles. "
-            * 40  # repeat to make it long enough for multiple sections
+    try:
+        # Use a dummy query to check for existence based on metadata
+        existing_docs = vdb.query_by_text(
+            collection=pipeline.sections_collection,
+            query_text="*",
+            n_results=1,
+            where={"doc_id": doc_id}
         )
+        # The query returns a list of lists, check if the inner list is non-empty
+        doc_exists = bool(existing_docs.get("ids", [[]])[0])
+    except Exception:
+        # This can happen if the collection doesn't exist yet.
+        doc_exists = False
 
-    # 2. Ingest the document directly from the file path
-    # This single call now handles loading, text extraction, and processing.
-    # It would work the same for a PDF: pipeline.ingest_from_file("my_report.pdf")
-    info = pipeline.ingest_from_file(dummy_file_path)
-    print("\nIngestion complete:", info)
+    should_ingest = True
+    if doc_exists:
+        while True:
+            response = input(f"Document '{doc_id}' may already be stored. Re-ingest? (y/n): ").lower().strip()
+            if response in ['y', 'n']:
+                if response == 'n':
+                    should_ingest = False
+                break
+            else:
+                print("Invalid input. Please enter 'y' or 'n'.")
 
-    # 3. Ask a question
-    q = "How does Newton’s second law apply to circular motion?"
-    print("\n--- Running Query ---")
-    print(f"Question: {q}")
-    answer = pipeline.run(q)
-    print("\nFinal Answer:\n", answer)
+    if should_ingest:
+        print(f"--- Ingesting document: {doc_id} ---")
+        info = pipeline.ingest_from_file(file_to_ingest)
+        print("\nIngestion complete:", info)
+    else:
+        print(f"\nSkipping ingestion. Using existing data for document '{doc_id}'.")
+
+    # 3. Ask questions in a loop
+    while True:
+        print("\n\nEnter a question to ask the document (or type 'quit' to exit):")
+        q = input("> ")
+        if q.lower().strip() in ["quit", "exit"]:
+            break
+        if not q.strip():
+            continue
+
+        print("\n--- Running Query ---")
+        print(f"Question: {q}")
+        answer = pipeline.run(q)
+        print("\nFinal Answer:\n", answer)

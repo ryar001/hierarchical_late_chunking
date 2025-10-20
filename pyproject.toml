@@ -5,7 +5,16 @@ dependencies = [
     "chromadb>=1.0.20",
     "docling>=2.47.0",
     "docling-core>=2.45.0",
-    "jina>=3.34.0",
     "langgraph>=0.6.6",
     "pytest>=8.4.1",
+    "multipart>=0.2.4",
+    "requests>=2.31.0",
+]
+
+[tool.setuptools]
+packages = ["components", "components.embeddings_llm", "components.llm"]
+
+[tool.pytest.ini_options]
+pythonpath = [
+    "."
 ]

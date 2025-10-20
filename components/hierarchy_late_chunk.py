@@ -37,16 +37,21 @@ class HierarchyLateChunk:
             raise FileNotFoundError(f"File not found at: {file_path}")
             
         print(f"--- Loading document from: {file_path} ---")
-        # 1. Use DocumentConverter to handle any file type
-        converter = DocumentConverter()
-        doc = converter.convert(file_path).document
+        
+        doc_id = doc_id or os.path.basename(file_path)
 
-        # 2. Extract the full text content
-        doc_text = doc.export_to_text()
+        if file_path.lower().endswith(".txt"):
+            with open(file_path, "r", encoding="utf-8") as f:
+                doc_text = f.read()
+        else:
+            # 1. Use DocumentConverter to handle any file type
+            converter = DocumentConverter()
+            doc = converter.convert(file_path).document
+
+            # 2. Extract the full text content
+            doc_text = doc.export_to_text()
         
         # 3. Pass the extracted text to the original ingestion method
-        #    Use the filename as a default doc_id if not provided
-        doc_id = doc_id or os.path.basename(file_path)
         return self.ingest_document(doc_text, doc_id=doc_id)
 
     def ingest_document(self, doc_text: str, doc_id: Optional[str] = None) -> Dict[str, Any]:
@@ -60,9 +65,8 @@ class HierarchyLateChunk:
         print(f"--- Processing text for document ID: {doc_id} ---")
         doc_id = doc_id or str(uuid.uuid4())
         tokens = doc_text.split()
-
         # 1) Attempt true late chunking (token vectors)
-        token_vectors = self.embedding_model.embed_tokens(doc_text)
+        token_vectors = self.embedding_model.embed_tokens(tokens)
 
         # 2) Sectioning (coarse units)
         section_spans = sliding_chunks(tokens, self.default_section_tokens, overlap=128)
@@ -70,7 +74,7 @@ class HierarchyLateChunk:
 
         # Section summaries (LLM)
         section_summaries: List[str] = [
-            self.llm.summarize(text=sec, max_tokens=256) for sec in sections
+            self.llm.summarize(text=sec, max_tokens=256).summary for sec in sections
         ]
 
         # Section embeddings (use summary text for compactness)
@@ -136,7 +140,7 @@ class HierarchyLateChunk:
         hits: List[RetrievalDoc] = []
         for sid in section_ids:
             res = self.vectordb.query_by_embedding(self.chunks_collection, q_emb, n_results=k_per_section,
-                                                   where={"type": "chunk", "section_id": sid})
+                                                   where={"$and": [{"type": "chunk"}, {"section_id": sid}]})
             hits.extend(_pack_results(res))
         
         seen = set()
@@ -152,7 +156,7 @@ class HierarchyLateChunk:
     # -------------------
     def _node_query_expansion(self, state: GraphState) -> GraphState:
         q = state["query"]
-        expansions = self.llm.expand_query(q, max_suggestions=3)
+        expansions = self.llm.expand_query(q, max_suggestions=3).expanded_queries
         state["sub_queries"] = [q] + expansions
         return state
 
@@ -174,7 +178,7 @@ class HierarchyLateChunk:
         chunks = state.get("chunk_hits", [])
         top_chunks = chunks[:6]
         context = "\n\n".join([c.text for c in top_chunks])
-        final = self.llm.answer(q, context)
+        final = self.llm.answer(q, context).answer
         state["final_answer"] = final
         return state
 

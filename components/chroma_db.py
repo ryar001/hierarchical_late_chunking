@@ -28,3 +28,7 @@ class ChromaDb(VectorDbInterface):
     def delete(self, collection: str, ids: List[str]) -> None:
         coll = self.get_or_create(collection)
         coll.delete(ids=ids)
+
+    def delete_collection(self, name: str) -> None:
+        """Deletes a collection from the database."""
+        self.client.delete_collection(name=name)
