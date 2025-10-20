@@ -1,3 +1,9 @@
+2025-10-20
+### Refactor
+- **GEMINI.md**:
+    - Updated virtual environment instruction to use `.venv`.
+    - Replaced WIP commit instruction with a directive to think step-by-step and seek confirmation before proceeding.
+
 ## 2025-10-20
 ### What's New
 #### `server.py`

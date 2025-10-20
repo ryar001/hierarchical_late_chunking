@@ -11,7 +11,7 @@
 - Then check `PROJECT_SPECIFIC_INSTRUCTIONS.md` to understand the project's specific instructions. Create one at root if not available
 - Check `TASK.md` before starting a new task. If the task isn’t listed, add it with a brief description and today's date. Create one at root if not available
 - Use consistent naming conventions, file structure, and architecture patterns as described in `PLANNING.md`.
-- Use the `venv_linux` virtual environment for all Python commands. Ensure dependencies from `requirements.txt` or `pyproject.toml` are installed.
+- Use the `.venv` virtual environment for all Python commands. Ensure dependencies from `requirements.txt` or `pyproject.toml` are installed.
 
 **Code Structure & Modularity**
 - Never allow files to exceed 500 lines. Refactor into modules/helpers before hitting the limit.
@@ -84,4 +84,4 @@
 - Never hallucinate libraries or functions. Only use verified packages.
 - Always confirm file paths and module names exist before referencing them.
 - Never delete or overwrite code unless explicitly instructed or it is part of a task in `TASK.md`.
-- Before any file edit, make a WIP commit: `git commit -m "WIP: Editing {CURRENT_FILE} for {REASON}"`.
+- always think step by step and list the steps then seek confirmation before proceeding
