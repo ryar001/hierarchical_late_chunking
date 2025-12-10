@@ -13,7 +13,6 @@ class ChromaDb(VectorDbInterface):
                  api_key: Optional[str] = None,
                  tenant: Optional[str] = None,
                  database: Optional[str] = None):
-             
         if api_key and tenant and database:
             self.client = chromadb.CloudClient(
                 api_key=api_key,

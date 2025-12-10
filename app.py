@@ -24,7 +24,9 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
 CHROMA_HOST = os.environ.get("CHROMA_HOST")
 CHROMA_PORT = int(os.environ.get("CHROMA_PORT", 8000))
 CHROMA_TOKEN = os.environ.get("CHROMA_TOKEN")
+CHROMA_TENANT = os.environ.get("CHROMA_TENANT")
 CHROMA_SSL = os.environ.get("CHROMA_SSL", "False").lower() == "true"
+CHROMA_CLOUD_DATABASE = os.environ.get("CHROMA_CLOUD_DATABASE")
 
 def init_pipeline():
     """Initializes the HierarchyLateChunk pipeline."""
@@ -42,7 +44,10 @@ def init_pipeline():
                 host=CHROMA_HOST,
                 port=CHROMA_PORT,
                 ssl=CHROMA_SSL,
-                headers=chroma_headers
+                headers=chroma_headers,
+                api_key=CHROMA_TOKEN,
+                tenant=CHROMA_TENANT,
+                database=CHROMA_CLOUD_DATABASE
             )
             vdb.client.heartbeat()
         except Exception as e:

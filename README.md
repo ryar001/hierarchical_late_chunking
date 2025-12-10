@@ -93,16 +93,30 @@ When a query is made via the `run` method, a `langgraph` state machine executes 
     ```
 
 3.  **Set up environment variables:**
-    Create a `.env` file in the project root and add your keys:
+    Create a `.env` file in the project root and add your keys.
+
     ```env
+    # Google Gemini API Key
     GOOGLE_API_KEY="your_google_api_key_here"
+
+    # --- Database Configuration ---
     
-    # ChromaDB Configuration (Optional - for Cloud/Remote)
-    # Leave CHROMA_HOST empty to use local storage (./chroma_store)
-    CHROMA_HOST="" 
-    CHROMA_PORT=8000
-    CHROMA_TOKEN=""
-    CHROMA_SSL=False
+    # OPTION 1: Local Storage (Default)
+    # Leave all CHROMA_* variables below empty or commented out.
+    # Data will be stored locally in ./chroma_store directory.
+
+    # OPTION 2: Chroma Cloud (Managed Service)
+    # Uncomment and fill these if using Chroma Cloud
+    # CHROMA_TOKEN="your_cloud_api_key"
+    # CHROMA_TENANT="default_tenant"
+    # CHROMA_CLOUD_DATABASE="default_database"
+
+    # OPTION 3: Remote Server (Self-Hosted)
+    # Uncomment and fill these if running your own Chroma server (e.g., Docker)
+    # CHROMA_HOST="localhost" 
+    # CHROMA_PORT=8000
+    # CHROMA_SSL=False
+    # CHROMA_TOKEN="" # Optional: specific token for self-hosted auth
     ```
 
 ## How to Run

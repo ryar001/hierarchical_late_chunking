@@ -1,3 +1,14 @@
+What's New:
+  README.md:
+    - Added instructions for creating a `.env` file.
+    - Detailed ChromaDB configuration options, including local storage, Chroma Cloud, and remote server setups, with corresponding environment variables (`CHROMA_TOKEN`, `CHROMA_TENANT`, `CHROMA_CLOUD_DATABASE`, `CHROMA_HOST`, `CHROMA_PORT`, `CHROMA_SSL`).
+  app.py:
+    - Added retrieval of `CHROMA_TENANT` and `CHROMA_CLOUD_DATABASE` environment variables for ChromaDB configuration.
+    - Updated ChromaDB client initialization within `init_pipeline` to incorporate `tenant` and `database` parameters, enhancing support for remote and cloud deployments.
+Refactor:
+  components/db/chroma_db.py:
+    - Removed direct `chromadb.HttpClient()` instantiation, centralizing client setup in `app.py`.
+
 **Docs**
   README.md:
     - Updated the section describing how to run the application and view logs, resulting in a more concise presentation.
