@@ -1,3 +1,10 @@
+Warnings:
+No breakpoints found.
+
+Docs:
+- DEPLOY_DOCKER.md
+  - Added an optional section for pushing the Docker image, including a command and a placeholder for the Docker username.
+
 What's New
 *   `workflow.md`:
     *   Introduced a new document detailing the application's workflows.

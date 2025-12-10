@@ -18,6 +18,12 @@ Run the following command in the root directory of the project:
 docker build -t hierarchical-rag .
 ```
 
+### push the image [OPTIONAL]
+```bash
+docker push YOUR_DOCKER_USERNAME/hierarchical-rag
+```
+- replace `YOUR_DOCKER_USERNAME` with your actual Docker username
+
 ### 2. Run the Container
 
 You need to pass your API keys as environment variables.
