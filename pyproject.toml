@@ -9,10 +9,17 @@ dependencies = [
     "pytest>=8.4.1",
     "multipart>=0.2.4",
     "requests>=2.31.0",
+    "ragas>=0.2.7",
+    "langchain-google-genai>=2.0.6",
+    "langchain-community>=0.3.10",
+    "pypdf>=5.1.0",
+    "chainlit>=1.3.0",
+    "google-generativeai>=0.8.0",
+    "python-dotenv>=1.0.0"
 ]
 
 [tool.setuptools]
-packages = ["components", "components.embeddings_llm", "components.llm"]
+packages = ["components", "components.embeddings_llm", "components.llm", "components.db"]
 
 [tool.pytest.ini_options]
 pythonpath = [

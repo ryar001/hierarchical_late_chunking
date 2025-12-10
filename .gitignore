@@ -1,6 +1,15 @@
 .venv/
-*/__pycache__/*
+__pycache__/
+*.pyc
 *.csv
 .*
 !/.gitignore
 *.egg-info/
+
+# all chroma_store
+chroma_store/*
+
+uploads/
+
+# mounted rag data
+my_rag_data/

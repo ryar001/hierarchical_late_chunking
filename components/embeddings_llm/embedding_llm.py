@@ -1,8 +1,10 @@
 from typing import Callable, List, Optional
 from components.embeddings_llm.jina_embedding_model import JinaEmbeddingModel
+from components.embeddings_llm.gemini_embedding_model import GeminiEmbeddingModel
 from components.embedding_interface import EmbeddingInterface
+from components.llm.models_const import GeminiModels,JinaModels,Models
 
-def get_embedding_model(model_name: str, token_embed_fn: Optional[Callable[[str], List[List[float]]]] = None) -> EmbeddingInterface:
+def get_embedding_model(model_name: Models.EmbeddingModels, token_embed_fn: Optional[Callable[[str], List[List[float]]]] = None) -> EmbeddingInterface:
     """
     Routes to the correct embedding model based on the model_name.
 
@@ -16,7 +18,9 @@ def get_embedding_model(model_name: str, token_embed_fn: Optional[Callable[[str]
     Raises:
         ValueError: If an unsupported model_name is provided.
     """
-    if model_name == "jina-embeddings-v2-base-en":
+    if model_name == JinaModels.EmbeddingModels.JINA_EMBEDDINGS_V2_BASE_EN:
         return JinaEmbeddingModel(model_name=model_name, token_embed_fn=token_embed_fn)
+    if model_name == GeminiModels.EmbeddingModels.GEMINI_EMBEDDING_001:
+        return GeminiEmbeddingModel(model_name=model_name, token_embed_fn=token_embed_fn)
     else:
         raise ValueError(f"Unsupported embedding model: {model_name}")

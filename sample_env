@@ -1,0 +1,14 @@
+GOOGLE_API_KEY= "Replace with your Google API Key, from https://makersuite.google.com/app/apikey "
+
+# ChromaDB Configuration
+CHROMA_HOST="Only if using with remote ChromaDB,including chroma cloud, else leave as '' "
+# ChromaDB Port to use
+CHROMA_PORT=8000
+# Set to True if using https
+CHROMA_SSL=True 
+# If authentication is required, for chroma cloud, leave as '' if otherwise
+CHROMA_TOKEN="ck-7wHtgjb2RSs1m3jMd4gHzXFKzCu4u66BLd99c9re9K4d"
+# If authentication is required, for chroma cloud, leave as '' if otherwise
+CHROMA_TENET="db34d24a-4978-40c2-a015-f4dbe157431d"
+# If authentication is required, for chroma cloud, leave as '' if otherwise
+CHROMA_CLOUD_DATABASE="test"

@@ -15,6 +15,9 @@ class JinaLLM:
 
     def __init__(self, api_key: Optional[str] = None):
         self.api_key = api_key or os.getenv("JINA_API_KEY")
+        if self.api_key:
+            self.api_key = self.api_key.strip().strip("'").strip('"')
+            
         if not self.api_key:
             raise ValueError("JINA_API_KEY not provided as argument or environment variable.")
 

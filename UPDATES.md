@@ -1,3 +1,30 @@
+Warnings:
+*   `hierarchical_late_chunking.py` contains a `breakpoint()` call.
+
+New Features:
+*   **Docker Support:** Added `Dockerfile`, `.dockerignore`, and `DEPLOY_DOCKER.md` for containerized deployment.
+*   **Chainlit UI:** Implemented `app.py` and updated `README.md` to provide an interactive chat interface.
+*   **Evaluation Module:** Introduced a new module in `evaluate/` for assessing RAG performance using RAGAs, including `eval.toml`, `run_eval.py`, and `ragas_utils.py`.
+
+Refactor & Core Logic:
+*   **RAG Pipeline Enhancements:** Significantly refactored `components/hierarchy_late_chunk.py` for improved retrieval, embedding (Gemini), and LLM (Gemini) integration. Updated related components like `data_structures.py`, `models/llm_model.py`, and `models_const.py`.
+*   **Vector Database Abstraction:** Added `components/db/factory.py`, `vector_db_interface.py`, and a Firestore placeholder. `chroma_db.py` implementation was improved.
+*   **Dependencies:** Updated `pyproject.toml` with new packages such as `ragas`, `chainlit`, and `langchain-google-genai`.
+
+Documentation:
+*   Updated `README.md` with comprehensive setup, usage, and deployment instructions.
+*   Added `DEPLOY_DOCKER.md`.
+*   Updated `TASK.md` and `GEMINI.md`.
+
+Testing:
+*   Added new test files (`test_chroma_connection.py`, `test_query_db.py`) and updated existing tests (`test_chroma_db.py`, `test_hierarchy_late_chunk.py`) for enhanced coverage.
+
+Configuration:
+*   Updated `.gitignore` and added `sample_env`.
+
+Removals:
+*   Removed old frontend files (`frontend/`), `server.py`, `ai-tracker.sh`, and `AI_TRACKER_GENIE.md`.
+
 ### 2025-10-20
 
 #### Refactor

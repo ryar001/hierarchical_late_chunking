@@ -4,12 +4,17 @@
 - Prioritize readable, reliable, and testable code. If rules conflict, readability for a mid-level developer is the highest priority.
 
 **Project Context & Workflow**
+- **Start by check for a `specs/` directory, and specs/{SOME_PROJECE_NAME}/ directory, (1)`plan.md`, `spec.md` if exists, use these instead of (2)`PLANNING.md`,`PROJECT_SPECIFIC_INSTRUCTIONS.md`, and `TASK.md` respectively**
+    - if both exist in the project, read the content from (2) files and add if required to the to (1) files.
 - Always read `PLANNING.md` at the start of a new conversation to understand the project's architecture, goals, style, and constraints. Create one at root if not available
+    - if `plan.md` exist in the project, then read `plan.md` instead of `PLANNING.md`
 - Then `README.md` to understand the project's current state and functionality. Create one at root if not available
 - Then check `UPDATES.md` to understand the latest changes and updates. Create one at root if not available
 - Then check `BUGS_LOG.md` to understand the known bugs and their status. Create one at root if not available
-- Then check `PROJECT_SPECIFIC_INSTRUCTIONS.md` to understand the project's specific instructions. Create one at root if not available
+- Then check `PROJECT_SPECIFIC_INSTRUCTIONS.md` to understand the project's specific instructions. Create one at root if not available.
+    - if `specs.md` exist in the project, then read `specs.md` instead of `PROJECT_SPECIFIC_INSTRUCTIONS.md`
 - Check `TASK.md` before starting a new task. If the task isn’t listed, add it with a brief description and today's date. Create one at root if not available
+    - if `tasks.md` exist in the project, then read `tasks.md` instead of `TASK.md`
 - Use consistent naming conventions, file structure, and architecture patterns as described in `PLANNING.md`.
 - Use the `.venv` virtual environment for all Python commands. Ensure dependencies from `requirements.txt` or `pyproject.toml` are installed.
 
@@ -43,6 +48,7 @@
 - Log errors with sufficient context to aid in debugging.
 
 **API & Package Development**
+- **Only use if required for project**
 - Perform a pre-flight check before implementing API methods:
     - Verify methods against official API documentation to prevent hallucination,search the web if not provided the documentation or the link to the documentation.
     - Understand the expected inputs and outputs.

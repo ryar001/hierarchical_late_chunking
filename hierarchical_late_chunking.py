@@ -2,15 +2,14 @@
 import os
 from dotenv import load_dotenv
 # Import components
-from components.embeddings_llm.jina_embedding_model import JinaEmbeddingModel
-from components.chroma_db import ChromaDb
-from components.data_structures import RetrievalDoc, GraphState
+# Import components
+from components.embeddings_llm.gemini_embedding_model import GeminiEmbeddingModel
+from components.db.chroma_db import ChromaDb
+
 from components.hierarchy_late_chunk import HierarchyLateChunk
 from components.llm.gemini_llm import GeminiLLM
-from components.utils import mean_pool, fuse_vectors, sliding_chunks, _which_section, _pack_results
 
 load_dotenv()
-JINA_API_KEY = os.environ.get("JINA_API_KEY")
 GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
 
 # =========================
@@ -19,14 +18,42 @@ GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
 if __name__ == "__main__":
     # Dependencies (inject)
     try:
-        emb = JinaEmbeddingModel(model_name="jina-embeddings-v2-base-en", api_key=JINA_API_KEY)
+        emb = GeminiEmbeddingModel(api_key=GOOGLE_API_KEY)
         llm = GeminiLLM(api_key=GOOGLE_API_KEY)
     except (ImportError, ValueError) as e:
         print(f"Error: {e}")
         print("\nPlease ensure all required packages are installed and API keys are set. You can install packages using:\n  uv pip install jina chromadb langgraph docling google-generativeai")
         exit()
+    breakpoint()
+    # ChromaDB Config
+    CHROMA_HOST = os.environ.get("CHROMA_HOST")
+    CHROMA_PORT = int(os.environ.get("CHROMA_PORT", 8000))
+    CHROMA_TOKEN = os.environ.get("CHROMA_TOKEN")
+    CHROMA_SSL = os.environ.get("CHROMA_SSL", "False").lower() == "true"
+    
+    chroma_headers = None
+    if CHROMA_TOKEN:
+        chroma_headers = {"X-Chroma-Token": CHROMA_TOKEN}
 
-    vdb = ChromaDb(persist_directory="./chroma_store")
+    try:
+        vdb = ChromaDb(
+            persist_directory="./chroma_store",
+            host=CHROMA_HOST,
+            port=CHROMA_PORT,
+            ssl=CHROMA_SSL,
+            headers=chroma_headers
+        )
+        # Test connection
+        vdb.client.heartbeat()
+    except Exception as e:
+        print(f"Could not connect to remote ChromaDB ({e}). Falling back to local mode.")
+        vdb = ChromaDb(
+            persist_directory="./chroma_store",
+            host=None,
+            port=8000,
+            ssl=False,
+            headers=None
+        )
 
     pipeline = HierarchyLateChunk(llm=llm, embedding_model=emb, vectordb=vdb)
 
@@ -51,10 +78,12 @@ if __name__ == "__main__":
     doc_id = os.path.basename(file_to_ingest)
     
     try:
-        # Use a dummy query to check for existence based on metadata
-        existing_docs = vdb.query_by_text(
+        # Use a dummy embedding to check for existence based on metadata
+        # We must use query_by_embedding to avoid default embedding that leads to dimension mismatch
+        dummy_emb = pipeline.embedding_model.embed_text("test") 
+        existing_docs = vdb.query_by_embedding(
             collection=pipeline.sections_collection,
-            query_text="*",
+            query_embedding=dummy_emb,
             n_results=1,
             where={"doc_id": doc_id}
         )
@@ -62,6 +91,7 @@ if __name__ == "__main__":
         doc_exists = bool(existing_docs.get("ids", [[]])[0])
     except Exception:
         # This can happen if the collection doesn't exist yet.
+        # print(f"Check failed, assuming missing: {e}")
         doc_exists = False
 
     should_ingest = True
@@ -93,5 +123,20 @@ if __name__ == "__main__":
 
         print("\n--- Running Query ---")
         print(f"Question: {q}")
-        answer = pipeline.run(q)
+        result_state = pipeline.run(q)
+        answer = result_state.get("final_answer", "")
         print("\nFinal Answer:\n", answer)
+        
+        # Feedback Loop
+        try:
+            score_input = input("\nRate this answer (1-5) or press Enter to skip: ").strip()
+            if score_input.isdigit():
+                score = int(score_input)
+                if 1 <= score <= 5:
+                    pipeline.submit_feedback(
+                        query=q,
+                        chunk_ids=result_state.get("used_chunk_ids", []),
+                        score=score
+                    )
+        except Exception as e:
+            print(f"Error submitting feedback: {e}")

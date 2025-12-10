@@ -1,0 +1,20 @@
+__pycache__/
+*.pyc
+.venv
+.git
+.env
+chroma_store
+output.log
+
+# all tests
+test/
+tests/
+
+# all evals
+evaluate/
+
+# uploads stored
+uploads/
+
+# mounted rag data
+my_rag_data/

@@ -21,3 +21,37 @@ Implement all methods mentioned in docs.jina.ai/v8 into @components/llm/jina_llm
 - Documented the findings in `PLANNING.md`, covering the journey from data ingestion to vector storage and retrieval.
 
 **Status:** Completed
+
+## Task: Implement Evaluation Module
+**Date:** 2025-12-01
+
+**Description:**
+- Create an evaluation framework in `evaluate/` folder.
+- Ingest `.lamrim.pdf` using `hierarchical_late_chunking.py`.
+- Create `evaluate/eval.toml` with 5 test questions based on the PDF.
+- Implement `evaluate/run_eval.py` to run queries and evaluate answers using an LLM agent.
+- Output results to `evaluate/eval_result.json`.
+
+**Status:** Completed
+- Updated `evaluate/run_eval.py` to use RAGAs framework for evaluation metrics (Faithfulness, Answer Relevancy, Context Recall, Answer Correctness).
+- Added `ragas` and `langchain` dependencies.
+
+## Task: Refactor Frontend to Chainlit
+**Date:** 2025-12-09
+
+**Description:**
+- Replace the HTTP server based frontend (`server.py`) with a Chainlit application (`app.py`).
+- Implement file upload with ingestion processing and status notifications.
+- Replicate duplicate document detection logic.
+- Ensure integration with existing backend components and data storage.
+
+**Status:** Completed
+
+## Task: Document Docker Usage
+**Date:** 2025-12-10
+
+**Description:**
+- Add "Running with Docker" instructions to `README.md`.
+- Include build and run commands and link to `DEPLOY_DOCKER.md`.
+
+**Status:** Completed

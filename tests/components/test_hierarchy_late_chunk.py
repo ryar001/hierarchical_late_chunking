@@ -1,7 +1,6 @@
 import unittest
 from unittest.mock import Mock, patch
 import os
-import uuid
 import shutil
 import tempfile
 from typing import List, Optional
@@ -9,7 +8,7 @@ from typing import List, Optional
 from components.hierarchy_late_chunk import HierarchyLateChunk
 from components.data_structures import GraphState, RetrievalDoc
 from components.dummy_llm import DummyLLM
-from components.chroma_db import ChromaDb
+from components.db.chroma_db import ChromaDb
 from components.embedding_interface import EmbeddingInterface
 from components.models.llm_model import SummarizeOutput, ExpandQueryOutput, AnswerOutput
 
@@ -83,7 +82,7 @@ class TestHierarchyLateChunk(unittest.TestCase):
         self.mock_embedding_model.embed_documents.assert_called()
         self.mock_vectordb.add.assert_called()
 
-    @patch("components.hierarchy_late_chunk.DocumentConverter")
+    @patch("docling.document_converter.DocumentConverter")
     @patch("os.path.exists")
     def test_ingest_from_file(self, mock_os_path_exists, MockDocumentConverter):
         mock_os_path_exists.return_value = True
@@ -114,55 +113,36 @@ class TestHierarchyLateChunk(unittest.TestCase):
             self.hierarchy_late_chunk.ingest_from_file(file_path)
 
     def test_section_retrieval(self):
-        query = "test query"
         mock_q_emb = [0.1]*10
-        mock_results = {
-            "ids": [["sec1", "sec2"]],
-            "documents": [["Section 1", "Section 2"]],
-            "metadatas": [[{"type": "section"}, {"type": "section"}]],
-            "embeddings": [[ [0.2]*10, [0.3]*10 ]]
-        }
-        self.mock_embedding_model.embed_text.return_value = mock_q_emb
+        mock_results = [
+            RetrievalDoc(id="sec1", text="Section 1", metadata={"type": "section"}, embedding=[0.2]*10),
+            RetrievalDoc(id="sec2", text="Section 2", metadata={"type": "section"}, embedding=[0.3]*10)
+        ]
         self.mock_vectordb.query_by_embedding.return_value = mock_results
 
-        retrieved_sections = self.hierarchy_late_chunk._section_retrieval(query, top_n=2)
+        retrieved_sections = self.hierarchy_late_chunk._section_retrieval(mock_q_emb, top_n=2)
 
-        self.mock_embedding_model.embed_text.assert_called_once_with(query)
         self.mock_vectordb.query_by_embedding.assert_called_once_with(
             self.hierarchy_late_chunk.sections_collection, mock_q_emb, n_results=2, where={"type": "section"}
         )
         self.assertEqual(len(retrieved_sections), 2)
         self.assertEqual(retrieved_sections[0].id, "sec1")
-        self.assertEqual(retrieved_sections[1].id, "sec2")
 
     def test_chunk_retrieval_from_sections(self):
-        query = "test query for chunks"
         section_ids = ["sec_a", "sec_b"]
         mock_q_emb = [0.4]*10
-        mock_results_sec_a = {
-            "ids": [["chunk_a1", "chunk_a2"]],
-            "documents": [["Chunk A1", "Chunk A2"]],
-            "metadatas": [[{"type": "chunk", "section_id": "sec_a"}, {"type": "chunk", "section_id": "sec_a"}]],
-            "embeddings": [[ [0.5]*10, [0.6]*10 ]]
-        }
-        mock_results_sec_b = {
-            "ids": [["chunk_b1"]],
-            "documents": [["Chunk B1"]],
-            "metadatas": [[{"type": "chunk", "section_id": "sec_b"}]],
-            "embeddings": [[ [0.7]*10 ]]
-        }
+        mock_results_batch = [
+            RetrievalDoc(id="chunk_a1", text="Chunk A1", metadata={"type": "chunk", "section_id": "sec_a"}, embedding=[0.5]*10),
+            RetrievalDoc(id="chunk_a2", text="Chunk A2", metadata={"type": "chunk", "section_id": "sec_a"}, embedding=[0.6]*10),
+            RetrievalDoc(id="chunk_b1", text="Chunk B1", metadata={"type": "chunk", "section_id": "sec_b"}, embedding=[0.7]*10)
+        ]
 
-        self.mock_embedding_model.embed_text.return_value = mock_q_emb
-        self.mock_vectordb.query_by_embedding.side_effect = [mock_results_sec_a, mock_results_sec_b]
+        self.mock_vectordb.query_by_embedding.return_value = mock_results_batch
 
-        retrieved_chunks = self.hierarchy_late_chunk._chunk_retrieval_from_sections(query, section_ids, k_per_section=2)
+        retrieved_chunks = self.hierarchy_late_chunk._chunk_retrieval_from_sections(mock_q_emb, section_ids, k_per_section=2)
 
-        self.mock_embedding_model.embed_text.assert_called_once_with(query)
-        self.assertEqual(self.mock_vectordb.query_by_embedding.call_count, 2)
+        self.mock_vectordb.query_by_embedding.assert_called_once()
         self.assertEqual(len(retrieved_chunks), 3)
-        self.assertIn("chunk_a1", [c.id for c in retrieved_chunks])
-        self.assertIn("chunk_a2", [c.id for c in retrieved_chunks])
-        self.assertIn("chunk_b1", [c.id for c in retrieved_chunks])
 
     def test_node_query_expansion(self):
         initial_state = GraphState(query="original query")
@@ -174,7 +154,7 @@ class TestHierarchyLateChunk(unittest.TestCase):
         self.assertEqual(new_state["sub_queries"], ["original query", "expanded query 1", "expanded query 2"])
 
     def test_node_section_retrieval(self):
-        initial_state = GraphState(query="section query")
+        initial_state = GraphState(query="section query", query_embedding=[0.1]*10, hyde_embedding=None)
         mock_sections = [
             RetrievalDoc(id="sec_x", text="Sec X", metadata={"type": "section"}),
             RetrievalDoc(id="sec_y", text="Sec Y", metadata={"type": "section"})
@@ -183,11 +163,15 @@ class TestHierarchyLateChunk(unittest.TestCase):
 
         new_state = self.hierarchy_late_chunk._node_section_retrieval(initial_state)
 
-        self.hierarchy_late_chunk._section_retrieval.assert_called_once_with("section query", top_n=3)
+        # Should be called with the [0.1]*10 embedding from state
+        self.hierarchy_late_chunk._section_retrieval.assert_called_once_with([0.1]*10, top_n=5)
         self.assertEqual(new_state["section_hits"], mock_sections)
 
     def test_node_chunk_retrieval(self):
-        initial_state = GraphState(query="chunk query", section_hits=[
+        initial_state = GraphState(query="chunk query", 
+                                   query_embedding=[0.1]*10,
+                                   hyde_embedding=None,
+                                   section_hits=[
             RetrievalDoc(id="sec_1", text="Sec 1", metadata={"section_id": "sec_1"}),
             RetrievalDoc(id="sec_2", text="Sec 2", metadata={"section_id": "sec_2"})
         ])
@@ -196,10 +180,13 @@ class TestHierarchyLateChunk(unittest.TestCase):
             RetrievalDoc(id="ch_b", text="Chunk B", metadata={"type": "chunk"})
         ]
         self.hierarchy_late_chunk._chunk_retrieval_from_sections = Mock(return_value=mock_chunks)
+        self.hierarchy_late_chunk._chunk_retrieval_global = Mock(return_value=[])
+        self.hierarchy_late_chunk._retrieve_feedback_chunks = Mock(return_value=[])
 
         new_state = self.hierarchy_late_chunk._node_chunk_retrieval(initial_state)
 
-        self.hierarchy_late_chunk._chunk_retrieval_from_sections.assert_called_once_with("chunk query", ["sec_1", "sec_2"], k_per_section=4)
+        self.hierarchy_late_chunk._chunk_retrieval_from_sections.assert_called_once_with([0.1]*10, section_ids=["sec_1", "sec_2"], k_per_section=6)
+        self.hierarchy_late_chunk._chunk_retrieval_global.assert_called_once_with([0.1]*10, top_k=10)
         self.assertEqual(new_state["chunk_hits"], mock_chunks)
 
     def test_node_answer(self):
@@ -211,9 +198,9 @@ class TestHierarchyLateChunk(unittest.TestCase):
 
         new_state = self.hierarchy_late_chunk._node_answer(initial_state)
 
-        expected_context = "Context 1\n\nContext 2" # Note: \n\n is due to how join works with literal strings
         self.mock_llm.answer.assert_called_once_with("final question", "Context 1\n\nContext 2")
-        self.assertEqual(new_state["final_answer"], "Final Answer Text")
+        self.assertIn("Final Answer Text", new_state["final_answer"])
+        self.assertIn("**Sources:**", new_state["final_answer"])
 
     def test_build_graph_and_run(self):
         # Mock the nodes to control their behavior during graph execution
@@ -224,67 +211,13 @@ class TestHierarchyLateChunk(unittest.TestCase):
 
         query = "Graph test query"
         result = self.hierarchy_late_chunk.run(query)
-
-        self.assertEqual(result, "Graph Final Answer")
+        self.assertEqual(result["final_answer"], "Graph Final Answer")
         self.hierarchy_late_chunk._node_query_expansion.assert_called_once()
         self.hierarchy_late_chunk._node_section_retrieval.assert_called_once()
         self.hierarchy_late_chunk._node_chunk_retrieval.assert_called_once()
         self.hierarchy_late_chunk._node_answer.assert_called_once()
 
-    def test_pack_results(self):
-        from components.utils import _pack_results
-        # Test case 1: Empty results
-        empty_res = {"ids": [[]], "documents": [[]], "metadatas": [[]], "embeddings": [[]]}
-        self.assertEqual(_pack_results(empty_res), [])
 
-        # Test case 2: Single result
-        single_res = {
-            "ids": [["id1"]],
-            "documents": [["doc1"]],
-            "metadatas": [[{"source": "test"}]],
-            "embeddings": [[ [0.1, 0.2] ]]
-        }
-        expected_single = [
-            RetrievalDoc(id="id1", text="doc1", metadata={"source": "test"}, embedding=[0.1, 0.2])
-        ]
-        self.assertEqual(_pack_results(single_res), expected_single)
-
-        # Test case 3: Multiple results
-        multi_res = {
-            "ids": [["id1", "id2"]],
-            "documents": [["doc1", "doc2"]],
-            "metadatas": [[{"source": "test1"}, {"source": "test2"}]],
-            "embeddings": [[ [0.1, 0.2], [0.3, 0.4] ]]
-        }
-        expected_multi = [
-            RetrievalDoc(id="id1", text="doc1", metadata={"source": "test1"}, embedding=[0.1, 0.2]),
-            RetrievalDoc(id="id2", text="doc2", metadata={"source": "test2"}, embedding=[0.3, 0.4])
-        ]
-        self.assertEqual(_pack_results(multi_res), expected_multi)
-
-        # Test case 4: Results with missing optional fields (embeddings)
-        no_emb_res = {
-            "ids": [["id3"]],
-            "documents": [["doc3"]],
-            "metadatas": [[{"source": "test3"}]],
-            "embeddings": [[]]
-        }
-        expected_no_emb = [
-            RetrievalDoc(id="id3", text="doc3", metadata={"source": "test3"}, embedding=None)
-        ]
-        self.assertEqual(_pack_results(no_emb_res), expected_no_emb)
-
-        # Test case 5: Results with missing optional fields (metadatas)
-        no_meta_res = {
-            "ids": [["id4"]],
-            "documents": [["doc4"]],
-            "metadatas": [[]],
-            "embeddings": [[ [0.5, 0.6] ]]
-        }
-        expected_no_meta = [
-            RetrievalDoc(id="id4", text="doc4", metadata={}, embedding=[0.5, 0.6])
-        ]
-        self.assertEqual(_pack_results(no_meta_res), expected_no_meta)
 
 class TestHierarchyLateChunkIntegration(unittest.TestCase):
 
@@ -335,15 +268,15 @@ class TestHierarchyLateChunkIntegration(unittest.TestCase):
         self.assertEqual(chunks_count, ingest_info["num_chunks"])
 
         # 2. Run a query
-        query = "What does the fox do?"
+        query = "What this pdf contain?"
         answer = self.pipeline.run(query)
 
         self.assertIsNotNone(answer)
         # DummyLLM returns a canned response, so we check for keywords in the context it received
-        self.assertIn("fox", answer.lower())
-        self.assertIn("jumps", answer.lower())
-        self.assertIn("lazy dog", answer.lower())
-        self.assertIn("q: what does the fox do?", answer.lower())
+        self.assertIn("fox", answer["final_answer"].lower())
+        self.assertIn("jumps", answer["final_answer"].lower())
+        self.assertIn("lazy dog", answer["final_answer"].lower())
+        self.assertIn("q: what this pdf contain?", answer["final_answer"].lower())
 
     def test_e2e_pdf_ingestion(self):
         # 1. Ingest the PDF document

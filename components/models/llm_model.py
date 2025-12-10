@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Union
 
 # GeminiLLM Models
 class GenerateOutput(BaseModel):
@@ -22,27 +22,38 @@ class EmbeddingData(BaseModel):
     object: str = Field(..., description="The object type, e.g., 'embedding'.")
 
 class EmbeddingUsage(BaseModel):
-    prompt_tokens: int = Field(..., description="Number of tokens in the prompt.")
+    prompt_tokens: Optional[int] = Field(None, description="Number of tokens in the prompt.")
     total_tokens: int = Field(..., description="Total number of tokens processed.")
 
+    model_config = {"extra": "ignore"}
+
 class EmbedOutput(BaseModel):
-    data: List[EmbeddingData] = Field(..., description="A list of embedding data objects.")
-    model: str = Field(..., description="The name of the model used for embedding.")
-    object: str = Field(..., description="The object type, e.g., 'list'.")
-    usage: EmbeddingUsage = Field(..., description="Token usage statistics.")
+    data: Optional[List[EmbeddingData]] = Field(None, description="A list of embedding data objects.")
+    model: Optional[str] = Field(None, description="The name of the model used for embedding.")
+    object: Optional[str] = Field(None, description="The object type, e.g., 'list'.")
+    usage: Optional[EmbeddingUsage] = Field(None, description="Token usage statistics.")
+
+    model_config = {"extra": "ignore"}
 
 class RerankResult(BaseModel):
-    document: Dict[str, Any] = Field(..., description="The original document.")
+    document: Union[Dict[str, Any], str] = Field(..., description="The original document.")
     index: int = Field(..., description="The original index of the document.")
     relevance_score: float = Field(..., description="The relevance score of the document to the query.")
 
+    model_config = {"extra": "ignore"}
+
 class RerankUsage(BaseModel):
     total_tokens: int = Field(..., description="Total number of tokens processed.")
+    prompt_tokens: Optional[int] = Field(None, description="Number of tokens in the prompt.")
+
+    model_config = {"extra": "ignore"}
 
 class RerankOutput(BaseModel):
     model: str = Field(..., description="The name of the reranker model used.")
     results: List[RerankResult] = Field(..., description="A list of reranked documents.")
     usage: RerankUsage = Field(..., description="Token usage statistics.")
+
+    model_config = {"extra": "ignore"}
 
 class ReadOutput(BaseModel):
     content: str = Field(..., description="The parsed content from the URL.")

@@ -1,9 +1,9 @@
 
 import os
-from typing import List
 import google.generativeai as genai
 from components.embeddings_llm.llm_interface import LLMInterface
 from components.models.llm_model import GenerateOutput, SummarizeOutput, ExpandQueryOutput, AnswerOutput
+from components.llm.models_const import GeminiModels
 
 # Prompt Templates
 SUMMARY_PROMPT_TEMPLATE = """Summarize the following text concisely, aiming for about {max_tokens} tokens:
@@ -29,7 +29,7 @@ class GeminiLLM(LLMInterface):
     """
     A wrapper for the Google Gemini LLM.
     """
-    def __init__(self, model_name: str = "gemini-2.5-flash", api_key: str = None):
+    def __init__(self, model_name: str = GeminiModels.FastModels.GEMINI_2_DOT_5_FLASH_LITE, api_key: str = None):
         """
         Initializes the GeminiLLM.
 
@@ -40,6 +40,9 @@ class GeminiLLM(LLMInterface):
         """
         self.model_name = model_name
         self.api_key = api_key or os.environ.get("GOOGLE_API_KEY")
+        if self.api_key:
+            self.api_key = self.api_key.strip().strip("'").strip('"')
+
         if not self.api_key:
             raise ValueError("Google API key not provided or found in environment variables.")
         
