@@ -1,3 +1,7 @@
+**Docs**
+  README.md:
+    - Updated the section describing how to run the application and view logs, resulting in a more concise presentation.
+
 Warnings:
 No breakpoints found.
 

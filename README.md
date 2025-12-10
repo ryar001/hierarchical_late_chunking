@@ -142,12 +142,7 @@ The UI will initialize the pipeline and allow you to upload PDFs or ask question
 
 You can also run the application (Chainlit frontend) using Docker.
 
-1.  **Build the image:**
-    ```bash
-    docker build -t hierarchical-rag .
-    ```
-
-2.  **Run the container:**
+1.  **Run the container:**
     ```bash
     docker run -p 8000:8000 --env-file .env -v $(pwd)/my_rag_data:/app/chroma_store jokerssd/hierarchical-rag
     ```
@@ -156,7 +151,7 @@ You can also run the application (Chainlit frontend) using Docker.
 
     Ensure your `.env` file is properly configured with `GOOGLE_API_KEY`.
 
-3.  **Viewing Logs**
+2.  **Viewing Logs**
     To view the application's logs while it's running in Docker:
     ```bash
     docker logs -f <container_id_or_name>
