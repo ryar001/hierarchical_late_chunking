@@ -1,3 +1,7 @@
+What's New
+  - pyproject.toml
+    - Added optional dependency group `test` with `pytest>=8.4.1` and `ragas>=0.2.7`.
+
 What's New:
   README.md:
     - Added instructions for creating a `.env` file.
