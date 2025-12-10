@@ -1,3 +1,11 @@
+What's New
+*   `workflow.md`:
+    *   Introduced a new document detailing the application's workflows.
+    *   Includes mermaid diagrams for Data Ingestion Flow and Query and Retrieval Flow.
+    *   Outlines v3 Optimization & Speed Improvements (Parallel Retrieval, Cached Embeddings, Batched DB Queries, Lazy Loading).
+    *   Provides a detailed explanation of the Retrieval Logic (Super-Vector, Hierarchical Search, Reranking).
+    *   Describes the Evaluation & Testing setup and how to run evaluations.
+
 Warnings:
 *   `hierarchical_late_chunking.py` contains a `breakpoint()` call.
 
